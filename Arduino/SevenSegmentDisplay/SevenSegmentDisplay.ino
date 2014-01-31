@@ -47,6 +47,7 @@ void setup() {
   pinMode(switch1Pin, INPUT);
   pinMode(switch2Pin, INPUT);
   setupMode();
+  randomSeed(analogRead(0));
 }
 
 void setupMode() {
@@ -189,7 +190,7 @@ void setupDiceMode() {
 
 void updateDice() {
   if (rollDice) {
-    activeDigit = random(1, 6);
+    activeDigit = random(1, 7);
     writeActiveDigit();
   }
 }
