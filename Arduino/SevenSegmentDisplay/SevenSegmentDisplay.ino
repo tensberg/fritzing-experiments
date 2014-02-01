@@ -1,6 +1,9 @@
 // 7 bar segments + 1 dot segment (active low)
 const int SEGMENTS = 8;
 const int DOT_SEGMENT = SEGMENTS - 1;
+
+// note that the pins are different from the Fritzing sketch
+// because my 7 segment display has a different pin assignment
 int segmentPins[] = { 2, 3, 4, 5, 6, 7, 8, 9 };
 int segmentState[] = { 0, 0, 0, 0, 0, 0, 0, 0  };
 
