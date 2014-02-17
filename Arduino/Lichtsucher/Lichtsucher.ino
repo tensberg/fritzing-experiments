@@ -5,13 +5,13 @@ const int DEG_MIN = 25;
 const int DEG_MAX = 150;
 const int FULL_MOVE_TIME = 380;
 const int MICROS_PER_DEG = FULL_MOVE_TIME*100 / (DEG_MAX - DEG_MIN);
+const int MAX_LIGHT = 1024;
 
 const int LICHTSENSOR = 0;
 
 int lightMinAbs;
+int lightSeekPrev;
 int lightMaxAbs;
-int lightMinCurrent;
-int lightMinDeg = DEG_MIN;
 
 const int MODE_SEEK = 0;
 const int MODE_PAUSE = 1;
@@ -59,13 +59,9 @@ void reference() {
     head.write(deg);
     delayMicroseconds(MICROS_PER_DEG*STEPS);
     int light = readLight();
-    if (light == lightMinAbs) {
-      lightMinDeg = deg;
-    }
   }
   
   moveHead(90);
-  lightMinCurrent = lightMinAbs;
 }
 
 void do_startup() {
@@ -89,29 +85,32 @@ void init_pause() {
   Serial.print(" light ");
   Serial.println(readLight());
   mode = MODE_PAUSE;
-  delay(1000);
 }
 
 void do_pause() {
   int light = readLight();
-  if (light < lightMinCurrent) {
-    lightMinCurrent = light;
-  } else if (deviationLargerThan(light, lightMinAbs, lightMaxAbs, 5)) {
+  if (deviation(light, lightMinAbs) > 30) {
     init_seek(light);
   }
 }
 
 void init_seek(int light) {
-  Serial.println("seek");
-  lightMinCurrent = light;
+  Serial.print("seek ");
+  Serial.println(light);
   mode = MODE_SEEK;
   turns = 0;
+  lightSeekPrev = MAX_LIGHT;
 }
 
 void do_seek() {
   int position = head.read();
   if (position <= DEG_MIN || position >= DEG_MAX) {
-    do_turn();
+    boolean abortSeek = do_turn();
+    if (abortSeek) {
+      moveHead(90);
+      init_pause();
+      return;
+    }
   }
   if (position < DEG_MIN) {
     position = DEG_MIN;
@@ -123,36 +122,29 @@ void do_seek() {
   moveHead(newPosition);
   
   int light = readLight();
-  if (light < lightMinCurrent) {
-    lightMinDeg = newPosition;
-    lightMinCurrent = light;
-  } else if (deviationSmallerThan(light, lightMinAbs, lightMaxAbs, 2)) {
-    //moveHead(lightMinDeg);
+  if (deviation(light, lightMinAbs) < 30) {
     init_pause();
   }
 }
 
-void do_turn() {
+boolean do_turn() {
   direction = -direction;
   turns++;
-  if (turns == 2) {
-    lightMinAbs = lightMinCurrent;
+  
+  if (turns == 3) {
+    lightMinAbs = readLight();
+    Serial.print("turn reset to ");
+    Serial.println(lightMinAbs);
     turns == 0;
+    
+    return true;
   }
+  
+  return false;
 }
 
-boolean deviationLargerThan(int lightRef, int lightMin, int lightMax, int maxDeviationPercent) {
-  int deviation = abs(lightRef - lightMin);
-  int deviationPercent = deviation*100 / (lightMax-lightMin);
-  
-  return deviationPercent > maxDeviationPercent;
-}
-
-boolean deviationSmallerThan(int lightRef, int lightMin, int lightMax, int maxDeviationPercent) {
-  int deviation = abs(lightRef - lightMin);
-  int deviationPercent = deviation*100 / (lightMax-lightMin);
-  
-  return deviationPercent < maxDeviationPercent;
+int deviation(int lightRef, int lightMin) {
+  return abs(lightRef - lightMin);
 }
 
 int readLight() {
