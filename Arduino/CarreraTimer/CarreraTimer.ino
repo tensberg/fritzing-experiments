@@ -25,7 +25,7 @@ boolean newLapStarted = false;
 long bestTime = 100000;
 
 const int BARRIER_THRESHOLD_LOW = 600;
-const int BARRIER_THRESHOLD_HIGH = 900;
+const int BARRIER_THRESHOLD_HIGH = 800;
 
 const int BARRIER_OPENED = 0;
 const int BARRIER_CLOSED = 1;
@@ -83,13 +83,13 @@ void startRace() {
 }
 
 void doRace(int barrierState) {
-  if (barrierState == BARRIER_CLOSED) {
+  updateLapTime();
+
+  if (barrierState == BARRIER_CLOSED && lastLapTimeTenth >= 3) {
     newLap();
   }
   
-  updateLapTime();
-  
-  if (newLapStarted && lastLapTimeTenth >= 25) {
+  if (newLapStarted && lastLapTimeTenth >= 15) {
     digitalWrite(greenPin, LOW);
     digitalWrite(redPin, LOW);
     lcd.setCursor(13,0);
