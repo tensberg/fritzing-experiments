@@ -92,6 +92,8 @@ void doRace(int barrierState) {
   if (newLapStarted && lastLapTimeTenth >= 25) {
     digitalWrite(greenPin, LOW);
     digitalWrite(redPin, LOW);
+    lcd.setCursor(13,0);
+    lcd.print("  ");
     newLapStarted = false;
   }
 }
@@ -99,6 +101,7 @@ void doRace(int barrierState) {
 void newLap() {
   long lapEnd = millis();
   long lapTime = lapEnd - lapStart;
+  printTime(lapTime, 0, false);
   if (lapTime < bestTime) {
     newBestLap(lap, lapTime);
   } else {
@@ -113,11 +116,12 @@ void newLap() {
 }
 
 void updateLapTime() {
-  long lapTimeTenth = (millis() - lapStart)/100;
+  long lapTime = millis() - lapStart;
+  long lapTimeTenth = lapTime/100;
   
   if (lapTimeTenth != lastLapTimeTenth) {
     if (!newLapStarted) {
-      printTime(lapTimeTenth, 0);
+      printTime(lapTime, 0, true);
     }
     lastLapTimeTenth = lapTimeTenth;
   }
@@ -128,7 +132,7 @@ void newBestLap(int lap, int lapTime) {
   tone(buzzerPin, 880, 350);
   printLap(lap, 1);
   bestTime = lapTime;
-  printTime(bestTime / 100, 1);
+  printTime(bestTime, 1, false);
 }
 
 void noBestLap() {
@@ -149,11 +153,31 @@ void printLap(int lap, int row) {
   lcd.print(lap);
 }
 
-void printTime(long timeTenth, int row) {
+void printTime(long time, int row, boolean printTens) {
+  long secondsPart = time / 1000;
+  long millisPart = time % 1000;
+
   lcd.setCursor(8, row);
-  lcd.print(timeTenth/10);
+
+  if (secondsPart < 10) {
+    lcd.print("  ");
+  } else if (secondsPart < 100) {
+    lcd.print(' ');
+  }
+  lcd.print(secondsPart);
+  
   lcd.print('.');
-  lcd.print(timeTenth%10);
+  
+  if (printTens) {
+    lcd.print(millisPart / 100);
+  } else {
+    if (millisPart < 10) {
+      lcd.print("00");
+    } else if (millisPart < 100) {
+      lcd.print('0');
+    }
+    lcd.print(millisPart);
+  }
 }
 
 int checkBarrierState(int light) {
