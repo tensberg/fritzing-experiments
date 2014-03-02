@@ -6,9 +6,9 @@ LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
 const int photoPin = 0; // analog input of the photoresistor
 
-const int redPin = 8; // red LED
-const int yellowPin = 9; // yellow LED
-const int greenPin = 10; // green LED
+const int RED_PIN = 8; // red LED
+const int YELLOW_PIN = 9; // yellow LED
+const int GREEN_PIN = 10; // green LED
 
 const int buzzerPin = 6;
 
@@ -21,7 +21,7 @@ int mode = SETUP;
 const int TOTAL_LAP_INCREMENT = 25;
 
 long raceStart;
-long totalLaps = 5; //TOTAL_LAP_INCREMENT;
+long totalLaps = TOTAL_LAP_INCREMENT;
 int lap;
 long lapStart;
 long lastLapTime;
@@ -60,9 +60,9 @@ const char LAP_TIME_MARKER = 'Z';
 boolean ledsOn;
 
 void setup() {
-  pinMode(redPin, OUTPUT);
-  pinMode(yellowPin, OUTPUT);
-  pinMode(greenPin, OUTPUT);
+  pinMode(RED_PIN, OUTPUT);
+  pinMode(YELLOW_PIN, OUTPUT);
+  pinMode(GREEN_PIN, OUTPUT);
   pinMode(buzzerPin, OUTPUT);
   lcd.begin(16, 2);
   
@@ -92,20 +92,20 @@ void loop() {
 }
 
 void readySetGo() {
-  digitalWrite(redPin, HIGH);
+  setLed(RED_PIN, true);
   lcd.print("READY");
   tone(buzzerPin, 440, 100);
   delay(1000);
   
-  digitalWrite(yellowPin, HIGH);
+  setLed(YELLOW_PIN, true);
   lcd.setCursor(0,0);
   lcd.print("SET  ");
   tone(buzzerPin, 440, 100);
   delay(1000);
   
-  digitalWrite(greenPin, HIGH);
-  digitalWrite(redPin, LOW);
-  digitalWrite(yellowPin, LOW);
+  setLed(GREEN_PIN, true);
+  setLed(RED_PIN, false);
+  setLed(YELLOW_PIN, false);
   lcd.setCursor(0,0);
   lcd.print("GO   ");
   tone(buzzerPin, 880, 500);
@@ -117,11 +117,11 @@ int checkBarrierState(int light) {
   if (barrierClosed && light >= BARRIER_THRESHOLD_HIGH) {
     barrierClosed = false;
     state = BARRIER_OPENED;
-    digitalWrite(yellowPin, LOW);
+    setLed(YELLOW_PIN, false);
   } else if (!barrierClosed && light <= BARRIER_THRESHOLD_LOW) {
     barrierClosed = true;
     state = BARRIER_CLOSED;
-    digitalWrite(yellowPin, HIGH);
+    setLed(YELLOW_PIN, true);
   }
   
   return state;
@@ -145,7 +145,7 @@ void startRace() {
   lapStart = raceStart;
   lastTotalTimeSeconds = 0;
 
-  digitalWrite(greenPin, LOW);
+  setLed(GREEN_PIN, false);
   tone(buzzerPin, 880, 500);
   lcd.setCursor(0, 0);
   lcd.print(TOTAL_LAPS_MARKER);
@@ -168,8 +168,8 @@ void doRace(int barrierState) {
   }
   
   if (newLapStarted && lastLapTime >= LAST_LAP_DISPLAY_MILLIS) {
-    digitalWrite(greenPin, LOW);
-    digitalWrite(redPin, LOW);
+    setLed(GREEN_PIN, false);
+    setLed(RED_PIN, false);
     lcd.setCursor(COL_LAP_TIME + 7,0);
     lcd.print("  ");
     newLapStarted = false;
@@ -209,7 +209,7 @@ void updateLapTime(long now) {
 }
 
 void newBestLap(int lap, int lapTime) {
-  digitalWrite(greenPin, HIGH);
+  digitalWrite(GREEN_PIN, HIGH);
   tone(buzzerPin, 880, 350);
   printLap(lap, 1);
   bestTime = lapTime;
@@ -217,7 +217,7 @@ void newBestLap(int lap, int lapTime) {
 }
 
 void noBestLap() {
-  digitalWrite(redPin, HIGH);
+  digitalWrite(RED_PIN, HIGH);
   tone(buzzerPin, 220, 200);
 }
 
@@ -273,9 +273,9 @@ void finish(long now) {
 }
 
 void doFinish() {
-  setLed(greenPin, ledsOn);
-  setLed(yellowPin, ledsOn);
-  setLed(redPin, ledsOn);
+  setLed(GREEN_PIN, ledsOn);
+  setLed(YELLOW_PIN, ledsOn);
+  setLed(RED_PIN, ledsOn);
   ledsOn = !ledsOn;
   delay(1000);
 }
