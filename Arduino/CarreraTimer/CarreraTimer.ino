@@ -10,15 +10,19 @@ const int RED_PIN = 8; // red LED
 const int YELLOW_PIN = 9; // yellow LED
 const int GREEN_PIN = 10; // green LED
 
-const int buzzerPin = 6;
+const int BUZZER_PIN = 6;
+const int BUTTON_PIN = 13;
 
-const int SETUP = 0;
+const int CONFIG = 0;
 const int RACE = 1;
 const int FINISH = 2;
 
-int mode = SETUP;
+int mode = CONFIG;
+
+boolean buttonWasPressed = false;
 
 const int TOTAL_LAP_INCREMENT = 25;
+const int MAX_TOTAL_LAPS = 250;
 
 long raceStart;
 long totalLaps = TOTAL_LAP_INCREMENT;
@@ -41,6 +45,8 @@ boolean barrierClosed = false;
 const int MINIMUM_LAP_TIME_MILLIS = 300;
 const int LAST_LAP_DISPLAY_MILLIS = 1500;
 
+const int COL_TOTAL_LAPS = 2;
+const int COL_LIGHT = 8;
 const int COL_LAP_TOTAL = 1;
 const int COL_LAP_TIME = 7;
 
@@ -56,6 +62,7 @@ const char TOTAL_LAPS_MARKER = 'R';
 const char TOTAL_TIME_MARKER = 'G';
 const char FASTEST_LAP_MARKER = 'B';
 const char LAP_TIME_MARKER = 'Z';
+const char LIGHT_MARKER = 'L';
 
 boolean ledsOn;
 
@@ -63,10 +70,12 @@ void setup() {
   pinMode(RED_PIN, OUTPUT);
   pinMode(YELLOW_PIN, OUTPUT);
   pinMode(GREEN_PIN, OUTPUT);
-  pinMode(buzzerPin, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT);
   lcd.begin(16, 2);
   
   readySetGo();
+  initConfig();
 }
 
 void loop() {
@@ -75,8 +84,8 @@ void loop() {
   int barrierState = checkBarrierState(light);
   
   switch (mode) {
-    case SETUP:
-      doCalibration(barrierState, light);
+    case CONFIG:
+      doConfig(barrierState, light);
       break;
       
     case RACE:
@@ -94,13 +103,13 @@ void loop() {
 void readySetGo() {
   setLed(RED_PIN, true);
   lcd.print("READY");
-  tone(buzzerPin, 440, 100);
+  tone(BUZZER_PIN, 440, 100);
   delay(1000);
   
   setLed(YELLOW_PIN, true);
   lcd.setCursor(0,0);
   lcd.print("SET  ");
-  tone(buzzerPin, 440, 100);
+  tone(BUZZER_PIN, 440, 100);
   delay(1000);
   
   setLed(GREEN_PIN, true);
@@ -108,7 +117,7 @@ void readySetGo() {
   setLed(YELLOW_PIN, false);
   lcd.setCursor(0,0);
   lcd.print("GO   ");
-  tone(buzzerPin, 880, 500);
+  tone(BUZZER_PIN, 880, 500);
 }
 
 int checkBarrierState(int light) {
@@ -127,14 +136,51 @@ int checkBarrierState(int light) {
   return state;
 }
 
-void doCalibration(int barrierState, int light) {
+void initConfig() {
+  lcd.setCursor(0, 1);
+  lcd.print(TOTAL_LAPS_MARKER);
+  printTotalLaps();
+  lcd.setCursor(COL_LIGHT - 2, 1);
+  lcd.print(LIGHT_MARKER);
+  lcd.print(' ');
+}
+
+void doConfig(int barrierState, int light) {
   if (barrierState == BARRIER_CLOSED) {
     startRace();
   } else {
-    lcd.setCursor(0, 1);
-    lcd.print(light);
-    lcd.print("   ");
+    boolean buttonPressed = digitalRead(BUTTON_PIN) == LOW;
+    if (buttonPressed && !buttonWasPressed) {
+      incrementTotalLaps();
+    }
+    buttonWasPressed = buttonPressed;
+    
+    printLight(light);
   }
+}
+
+void incrementTotalLaps() {
+  totalLaps += TOTAL_LAP_INCREMENT;
+  
+  if (totalLaps > MAX_TOTAL_LAPS) {
+    totalLaps = TOTAL_LAP_INCREMENT;
+  }
+
+  printTotalLaps();
+} 
+
+void printTotalLaps() {
+  lcd.setCursor(COL_TOTAL_LAPS, 1);
+  if (totalLaps < 100) {
+    lcd.print(' ');
+  }
+  lcd.print(totalLaps);
+}
+
+void printLight(long light) {
+  lcd.setCursor(COL_LIGHT, 1);
+  lcd.print(light);
+  lcd.print("   ");
 }
 
 void startRace() {
@@ -146,7 +192,7 @@ void startRace() {
   lastTotalTimeSeconds = 0;
 
   setLed(GREEN_PIN, false);
-  tone(buzzerPin, 880, 500);
+  tone(BUZZER_PIN, 880, 500);
   lcd.setCursor(0, 0);
   lcd.print(TOTAL_LAPS_MARKER);
   lcd.print("   1 ");
@@ -209,16 +255,16 @@ void updateLapTime(long now) {
 }
 
 void newBestLap(int lap, int lapTime) {
-  digitalWrite(GREEN_PIN, HIGH);
-  tone(buzzerPin, 880, 350);
+  setLed(GREEN_PIN, true);
+  tone(BUZZER_PIN, 880, 350);
   printLap(lap, 1);
   bestTime = lapTime;
   printTime(bestTime, COL_LAP_TIME, 1, PRECISION_MILLIS);
 }
 
 void noBestLap() {
-  digitalWrite(RED_PIN, HIGH);
-  tone(buzzerPin, 220, 200);
+  setLed(RED_PIN, true);
+  tone(BUZZER_PIN, 220, 200);
 }
 
 void updateTotalTime(long now) {
@@ -267,7 +313,7 @@ void finish(long now) {
   lcd.print(TOTAL_TIME_MARKER);
   printTime(totalTime, COL_LAP_TIME, 0, PRECISION_MILLIS);
   
-  tone(buzzerPin, 440, 3000);
+  tone(BUZZER_PIN, 440, 3000);
   
   ledsOn = true;
 }
