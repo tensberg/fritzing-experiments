@@ -17,9 +17,11 @@ const int RACE = 1;
 
 int mode = CALIBRATION;
 
+long raceStart;
 int lap;
 long lapStart;
 long lastLapTime;
+long lastTotalTimeSeconds;
 boolean newLapStarted = false;
 
 long bestTime = 100000;
@@ -41,6 +43,15 @@ const int COL_LAP_TIME = 7;
 const int PRECISION_SECONDS = 0;
 const int PRECISION_TENS = 1;
 const int PRECISION_MILLIS = 2;
+
+const int SHOW_LAP = 0;
+const int SHOW_TOTAL_TIME = 1;
+int lapTimeMode;
+
+const char TOTAL_LAPS_MARKER = 'R';
+const char TOTAL_TIME_MARKER = 'G';
+const char FASTEST_LAP_MARKER = 'B';
+const char LAP_TIME_MARKER = 'Z';
 
 void setup() {
   pinMode(redPin, OUTPUT);
@@ -82,18 +93,29 @@ void doCalibration(int barrierState, int light) {
 
 void startRace() {
   mode = RACE;
+  lapTimeMode = SHOW_LAP;
   lap = 1;
-  lapStart = millis();
+  raceStart = millis();
+  lapStart = raceStart;
+  lastTotalTimeSeconds = 0;
+
   digitalWrite(greenPin, LOW);
   tone(buzzerPin, 880, 500);
   lcd.setCursor(0, 0);
-  lcd.print("R   1 Z 0.0");
+  lcd.print(TOTAL_LAPS_MARKER);
+  lcd.print("   1 ");
+  lcd.print(LAP_TIME_MARKER);
+  lcd.print("0:00.0");
   lcd.setCursor(0, 1);
-  lcd.print("B     Z");
+  lcd.print(FASTEST_LAP_MARKER);
+  lcd.print("     ");
+  lcd.print(LAP_TIME_MARKER);
 }
 
 void doRace(int barrierState) {
-  updateLapTime();
+  long now = millis();
+  updateLapTime(now);
+  updateTotalTime(now);
 
   if (barrierState == BARRIER_CLOSED && lastLapTime >= MINIMUM_LAP_TIME_MILLIS) {
     newLap();
@@ -125,8 +147,8 @@ void newLap() {
   newLapStarted = true;
 }
 
-void updateLapTime() {
-  long lapTime = millis() - lapStart;
+void updateLapTime(long now) {
+  long lapTime = now - lapStart;
   long lapTimeTenth = lapTime/100;
   
   if (lapTimeTenth != lastLapTime / 100) {
@@ -150,17 +172,54 @@ void noBestLap() {
   tone(buzzerPin, 220, 200);
 }
 
+void updateTotalTime(long now) {
+  long totalTime = now - raceStart;
+  
+  if ((totalTime / 3000) % 2 == 0) {
+    if (lapTimeMode != SHOW_LAP) {
+      switchLapMode();
+    }
+  } else {
+    long totalTimeSeconds = totalTime / 1000;
+    if (lapTimeMode != SHOW_TOTAL_TIME) {
+      switchTotalTimeMode(totalTime);
+    } else if (lastTotalTimeSeconds < totalTimeSeconds) {
+      showTotalTime(totalTime);
+    }
+    lastTotalTimeSeconds = totalTimeSeconds;
+  }
+}
+
+void switchLapMode() {
+  lcd.setCursor(0, 0);
+  lcd.print(TOTAL_LAPS_MARKER);
+  printLap(lap, 0);
+  lapTimeMode = SHOW_LAP;
+}
+
+void switchTotalTimeMode(long totalTime) {
+  lcd.setCursor(0, 0);
+  lcd.print(TOTAL_TIME_MARKER);
+  lapTimeMode = SHOW_TOTAL_TIME;
+  showTotalTime(totalTime);
+}
+
+void showTotalTime(long totalTime) {
+  printTime(totalTime, COL_LAP_TOTAL, 0, PRECISION_SECONDS);
+}
+
 void printLap(int lap, int row) {
   int col;
+  lcd.setCursor(1, row);
   if (lap >= 100) {
-    col = 2;
+    lcd.print(' ');
   } else if (lap >= 10) {
-    col = 3;
+    lcd.print("  ");
   } else {
-    col = 4;
+    lcd.print("   ");
   }
-  lcd.setCursor(col, row);
   lcd.print(lap);
+  lcd.print(' ');
 }
 
 void printTime(long time, int col, int row, int precision) {
