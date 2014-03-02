@@ -6,9 +6,9 @@ LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
 const int photoPin = 0; // analog input of the photoresistor
 
-const int redPin = 8;
-const int yellowPin = 9;
-const int greenPin = 10;
+const int redPin = 8; // red LED
+const int yellowPin = 9; // yellow LED
+const int greenPin = 10; // green LED
 
 const int buzzerPin = 6;
 
@@ -19,7 +19,7 @@ int mode = CALIBRATION;
 
 int lap;
 long lapStart;
-long lastLapTimeTenth;
+long lastLapTime;
 boolean newLapStarted = false;
 
 long bestTime = 100000;
@@ -31,6 +31,16 @@ const int BARRIER_OPENED = 0;
 const int BARRIER_CLOSED = 1;
 const int BARRIER_NOCHANGE = 2;
 boolean barrierClosed = false;
+
+const int MINIMUM_LAP_TIME_MILLIS = 300;
+const int LAST_LAP_DISPLAY_MILLIS = 1500;
+
+const int COL_LAP_TOTAL = 1;
+const int COL_LAP_TIME = 7;
+
+const int PRECISION_SECONDS = 0;
+const int PRECISION_TENS = 1;
+const int PRECISION_MILLIS = 2;
 
 void setup() {
   pinMode(redPin, OUTPUT);
@@ -85,14 +95,14 @@ void startRace() {
 void doRace(int barrierState) {
   updateLapTime();
 
-  if (barrierState == BARRIER_CLOSED && lastLapTimeTenth >= 3) {
+  if (barrierState == BARRIER_CLOSED && lastLapTime >= MINIMUM_LAP_TIME_MILLIS) {
     newLap();
   }
   
-  if (newLapStarted && lastLapTimeTenth >= 15) {
+  if (newLapStarted && lastLapTime >= LAST_LAP_DISPLAY_MILLIS) {
     digitalWrite(greenPin, LOW);
     digitalWrite(redPin, LOW);
-    lcd.setCursor(14,0);
+    lcd.setCursor(COL_LAP_TIME + 7,0);
     lcd.print("  ");
     newLapStarted = false;
   }
@@ -101,7 +111,7 @@ void doRace(int barrierState) {
 void newLap() {
   long lapEnd = millis();
   long lapTime = lapEnd - lapStart;
-  printTime(lapTime, 0, false);
+  printTime(lapTime, COL_LAP_TIME, 0, PRECISION_MILLIS);
   if (lapTime < bestTime) {
     newBestLap(lap, lapTime);
   } else {
@@ -111,7 +121,7 @@ void newLap() {
   lap++;
   printLap(lap, 0);
   lapStart = lapEnd;
-  lastLapTimeTenth = -1;
+  lastLapTime = -1;
   newLapStarted = true;
 }
 
@@ -119,11 +129,11 @@ void updateLapTime() {
   long lapTime = millis() - lapStart;
   long lapTimeTenth = lapTime/100;
   
-  if (lapTimeTenth != lastLapTimeTenth) {
+  if (lapTimeTenth != lastLapTime / 100) {
     if (!newLapStarted) {
-      printTime(lapTime, 0, true);
+      printTime(lapTime, COL_LAP_TIME, 0, PRECISION_TENS);
     }
-    lastLapTimeTenth = lapTimeTenth;
+    lastLapTime = lapTime;
   }
 }
 
@@ -132,7 +142,7 @@ void newBestLap(int lap, int lapTime) {
   tone(buzzerPin, 880, 350);
   printLap(lap, 1);
   bestTime = lapTime;
-  printTime(bestTime, 1, false);
+  printTime(bestTime, COL_LAP_TIME, 1, PRECISION_MILLIS);
 }
 
 void noBestLap() {
@@ -153,12 +163,12 @@ void printLap(int lap, int row) {
   lcd.print(lap);
 }
 
-void printTime(long time, int row, boolean printTens) {
+void printTime(long time, int col, int row, int precision) {
   long minutesPart = time / 60000;
   long secondsPart = (time % 60000) / 1000;
   long millisPart = time % 1000;
 
-  lcd.setCursor(7, row);
+  lcd.setCursor(col, row);
 
   if (minutesPart < 10) {
     lcd.print(' ');
@@ -172,17 +182,20 @@ void printTime(long time, int row, boolean printTens) {
   }
   lcd.print(secondsPart);
   
-  lcd.print('.');
+  if (precision != PRECISION_SECONDS) {
+    
+    lcd.print('.');
   
-  if (printTens) {
-    lcd.print(millisPart / 100);
-  } else {
-    if (millisPart < 10) {
-      lcd.print("00");
-    } else if (millisPart < 100) {
-      lcd.print('0');
+    if (precision == PRECISION_TENS) {
+      lcd.print(millisPart / 100);
+    } else {
+      if (millisPart < 10) {
+        lcd.print("00");
+      } else if (millisPart < 100) {
+        lcd.print('0');
+      }
+      lcd.print(millisPart);  
     }
-    lcd.print(millisPart);
   }
 }
 
