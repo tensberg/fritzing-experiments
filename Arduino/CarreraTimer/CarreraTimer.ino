@@ -12,12 +12,16 @@ const int greenPin = 10; // green LED
 
 const int buzzerPin = 6;
 
-const int CALIBRATION = 0;
+const int SETUP = 0;
 const int RACE = 1;
+const int FINISH = 2;
 
-int mode = CALIBRATION;
+int mode = SETUP;
+
+const int TOTAL_LAP_INCREMENT = 25;
 
 long raceStart;
+long totalLaps = 5; //TOTAL_LAP_INCREMENT;
 int lap;
 long lapStart;
 long lastLapTime;
@@ -53,6 +57,8 @@ const char TOTAL_TIME_MARKER = 'G';
 const char FASTEST_LAP_MARKER = 'B';
 const char LAP_TIME_MARKER = 'Z';
 
+boolean ledsOn;
+
 void setup() {
   pinMode(redPin, OUTPUT);
   pinMode(yellowPin, OUTPUT);
@@ -69,16 +75,56 @@ void loop() {
   int barrierState = checkBarrierState(light);
   
   switch (mode) {
-    case CALIBRATION:
+    case SETUP:
       doCalibration(barrierState, light);
       break;
       
     case RACE:
       doRace(barrierState);
       break;
+      
+    case FINISH:
+      doFinish();
+      break;
   }
     
-  delay(10);
+  delay(5);
+}
+
+void readySetGo() {
+  digitalWrite(redPin, HIGH);
+  lcd.print("READY");
+  tone(buzzerPin, 440, 100);
+  delay(1000);
+  
+  digitalWrite(yellowPin, HIGH);
+  lcd.setCursor(0,0);
+  lcd.print("SET  ");
+  tone(buzzerPin, 440, 100);
+  delay(1000);
+  
+  digitalWrite(greenPin, HIGH);
+  digitalWrite(redPin, LOW);
+  digitalWrite(yellowPin, LOW);
+  lcd.setCursor(0,0);
+  lcd.print("GO   ");
+  tone(buzzerPin, 880, 500);
+}
+
+int checkBarrierState(int light) {
+  int state = BARRIER_NOCHANGE;
+  
+  if (barrierClosed && light >= BARRIER_THRESHOLD_HIGH) {
+    barrierClosed = false;
+    state = BARRIER_OPENED;
+    digitalWrite(yellowPin, LOW);
+  } else if (!barrierClosed && light <= BARRIER_THRESHOLD_LOW) {
+    barrierClosed = true;
+    state = BARRIER_CLOSED;
+    digitalWrite(yellowPin, HIGH);
+  }
+  
+  return state;
 }
 
 void doCalibration(int barrierState, int light) {
@@ -118,7 +164,7 @@ void doRace(int barrierState) {
   updateTotalTime(now);
 
   if (barrierState == BARRIER_CLOSED && lastLapTime >= MINIMUM_LAP_TIME_MILLIS) {
-    newLap();
+    newLap(now);
   }
   
   if (newLapStarted && lastLapTime >= LAST_LAP_DISPLAY_MILLIS) {
@@ -130,21 +176,24 @@ void doRace(int barrierState) {
   }
 }
 
-void newLap() {
-  long lapEnd = millis();
-  long lapTime = lapEnd - lapStart;
+void newLap(long now) {
+  long lapTime = now - lapStart;
   printTime(lapTime, COL_LAP_TIME, 0, PRECISION_MILLIS);
   if (lapTime < bestTime) {
     newBestLap(lap, lapTime);
   } else {
     noBestLap();
   }
-  
-  lap++;
-  printLap(lap, 0);
-  lapStart = lapEnd;
-  lastLapTime = -1;
-  newLapStarted = true;
+
+  if (lap == totalLaps) {
+    finish(now);
+  } else {
+    lap++;
+    printLap(lap, 0);
+    lapStart = now;
+    lastLapTime = -1;
+    newLapStarted = true;
+  }
 }
 
 void updateLapTime(long now) {
@@ -208,6 +257,33 @@ void showTotalTime(long totalTime) {
   printTime(totalTime, COL_LAP_TOTAL, 0, PRECISION_SECONDS);
 }
 
+void finish(long now) {
+  mode = FINISH;
+  long totalTime = now - raceStart;
+  
+  // print laps and total time in row 0
+  switchLapMode();
+  lcd.setCursor(COL_LAP_TIME - 1, 0);
+  lcd.print(TOTAL_TIME_MARKER);
+  printTime(totalTime, COL_LAP_TIME, 0, PRECISION_MILLIS);
+  
+  tone(buzzerPin, 440, 3000);
+  
+  ledsOn = true;
+}
+
+void doFinish() {
+  setLed(greenPin, ledsOn);
+  setLed(yellowPin, ledsOn);
+  setLed(redPin, ledsOn);
+  ledsOn = !ledsOn;
+  delay(1000);
+}
+
+void setLed(int pin, boolean on) {
+  digitalWrite(pin, on ? HIGH : LOW);
+}
+
 void printLap(int lap, int row) {
   int col;
   lcd.setCursor(1, row);
@@ -258,38 +334,3 @@ void printTime(long time, int col, int row, int precision) {
   }
 }
 
-int checkBarrierState(int light) {
-  int state = BARRIER_NOCHANGE;
-  
-  if (barrierClosed && light >= BARRIER_THRESHOLD_HIGH) {
-    barrierClosed = false;
-    state = BARRIER_OPENED;
-    digitalWrite(yellowPin, LOW);
-  } else if (!barrierClosed && light <= BARRIER_THRESHOLD_LOW) {
-    barrierClosed = true;
-    state = BARRIER_CLOSED;
-    digitalWrite(yellowPin, HIGH);
-  }
-  
-  return state;
-}
-
-void readySetGo() {
-  digitalWrite(redPin, HIGH);
-  lcd.print("READY");
-  tone(buzzerPin, 440, 100);
-  delay(1000);
-  
-  digitalWrite(yellowPin, HIGH);
-  lcd.setCursor(0,0);
-  lcd.print("SET  ");
-  tone(buzzerPin, 440, 100);
-  delay(1000);
-  
-  digitalWrite(greenPin, HIGH);
-  digitalWrite(redPin, LOW);
-  digitalWrite(yellowPin, LOW);
-  lcd.setCursor(0,0);
-  lcd.print("GO   ");
-  tone(buzzerPin, 880, 500);
-}
