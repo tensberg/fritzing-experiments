@@ -92,7 +92,7 @@ void doRace(int barrierState) {
   if (newLapStarted && lastLapTimeTenth >= 15) {
     digitalWrite(greenPin, LOW);
     digitalWrite(redPin, LOW);
-    lcd.setCursor(13,0);
+    lcd.setCursor(14,0);
     lcd.print("  ");
     newLapStarted = false;
   }
@@ -154,15 +154,21 @@ void printLap(int lap, int row) {
 }
 
 void printTime(long time, int row, boolean printTens) {
-  long secondsPart = time / 1000;
+  long minutesPart = time / 60000;
+  long secondsPart = (time % 60000) / 1000;
   long millisPart = time % 1000;
 
-  lcd.setCursor(8, row);
+  lcd.setCursor(7, row);
+
+  if (minutesPart < 10) {
+    lcd.print(' ');
+  }
+  lcd.print(minutesPart);
+  
+  lcd.print(':');
 
   if (secondsPart < 10) {
-    lcd.print("  ");
-  } else if (secondsPart < 100) {
-    lcd.print(' ');
+    lcd.print('0');
   }
   lcd.print(secondsPart);
   
