@@ -2,7 +2,7 @@
 #include <LiquidCrystal.h>
 
 // initialize the library with the numbers of the interface pins
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+LiquidCrystal lcd(11, 12, 2, 3, 4, 5);
 
 const int photoPin = 0; // analog input of the photoresistor
 
