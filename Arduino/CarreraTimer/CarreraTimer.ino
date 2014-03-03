@@ -74,6 +74,8 @@ void setup() {
   pinMode(BUTTON_PIN, INPUT);
   lcd.begin(16, 2);
   
+  Serial.begin(57600);
+  
   readySetGo();
   initConfig();
 }
@@ -103,12 +105,14 @@ void loop() {
 void readySetGo() {
   setLed(RED_PIN, true);
   lcd.print("READY");
+  Serial.println("READY");
   tone(BUZZER_PIN, 440, 100);
   delay(1000);
   
   setLed(YELLOW_PIN, true);
   lcd.setCursor(0,0);
   lcd.print("SET  ");
+  Serial.println("SET");
   tone(BUZZER_PIN, 440, 100);
   delay(1000);
   
@@ -117,6 +121,7 @@ void readySetGo() {
   setLed(YELLOW_PIN, false);
   lcd.setCursor(0,0);
   lcd.print("GO   ");
+  Serial.println("GO");
   tone(BUZZER_PIN, 880, 500);
 }
 
@@ -191,6 +196,7 @@ void startRace() {
   lapStart = raceStart;
   lastTotalTimeSeconds = 0;
 
+  Serial.println("START");
   setLed(GREEN_PIN, false);
   tone(BUZZER_PIN, 880, 500);
   lcd.setCursor(0, 0);
@@ -225,7 +231,12 @@ void doRace(int barrierState) {
 void newLap(long now) {
   long lapTime = now - lapStart;
   printTime(lapTime, COL_LAP_TIME, 0, PRECISION_MILLIS);
-  if (lapTime < bestTime) {
+  
+  boolean isNewBestLap = lapTime < bestTime;
+  
+  serialPrintLapTime(lap, lapTime, isNewBestLap);
+  
+  if (isNewBestLap) {
     newBestLap(lap, lapTime);
   } else {
     noBestLap();
@@ -240,6 +251,17 @@ void newLap(long now) {
     lastLapTime = -1;
     newLapStarted = true;
   }
+}
+
+void serialPrintLapTime(int lap, long lapTime, boolean isNewBestLap) {
+  Serial.print("RUNDE ");
+  Serial.print(lap);
+  Serial.print(" ZEIT ");
+  serialPrintTime(lapTime);
+  if (isNewBestLap) {
+    Serial.print('!');
+  }
+  Serial.println();
 }
 
 void updateLapTime(long now) {
@@ -306,6 +328,8 @@ void showTotalTime(long totalTime) {
 void finish(long now) {
   mode = FINISH;
   long totalTime = now - raceStart;
+
+  serialPrintFinishTotalTime(totalTime);
   
   // print laps and total time in row 0
   switchLapMode();
@@ -316,6 +340,12 @@ void finish(long now) {
   tone(BUZZER_PIN, 440, 3000);
   
   ledsOn = true;
+}
+
+void serialPrintFinishTotalTime(long totalTime) {
+  Serial.print("ZIEL GESAMT ");
+  serialPrintTime(totalTime);
+  Serial.println();
 }
 
 void doFinish() {
@@ -378,5 +408,29 @@ void printTime(long time, int col, int row, int precision) {
       lcd.print(millisPart);  
     }
   }
+}
+
+void serialPrintTime(long time) {
+  long minutesPart = time / 60000;
+  long secondsPart = time / 1000 % 60;
+  long millisPart = time % 1000;
+
+  Serial.print(minutesPart);
+
+  Serial.print(':');
+
+  if (secondsPart < 10) {
+    Serial.print('0');
+  }
+  Serial.print(secondsPart);
+
+  Serial.print('.');
+  
+  if (millisPart < 10) {
+    Serial.print("00");
+  } else if (millisPart < 100) {
+    Serial.print('0');
+  }
+  Serial.print(millisPart);
 }
 
