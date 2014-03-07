@@ -196,7 +196,8 @@ void startRace() {
   lapStart = raceStart;
   lastTotalTimeSeconds = 0;
 
-  Serial.println("START");
+  Serial.print("START ");
+  Serial.println(totalLaps);
   setLed(GREEN_PIN, false);
   tone(BUZZER_PIN, 880, 500);
   lcd.setCursor(0, 0);
@@ -254,9 +255,9 @@ void newLap(long now) {
 }
 
 void serialPrintLapTime(int lap, long lapTime, boolean isNewBestLap) {
-  Serial.print("RUNDE ");
+  Serial.print("LAP ");
   Serial.print(lap);
-  Serial.print(" ZEIT ");
+  Serial.print(' ');
   serialPrintTime(lapTime);
   if (isNewBestLap) {
     Serial.print('!');
@@ -343,7 +344,7 @@ void finish(long now) {
 }
 
 void serialPrintFinishTotalTime(long totalTime) {
-  Serial.print("ZIEL GESAMT ");
+  Serial.print("FINISH ");
   serialPrintTime(totalTime);
   Serial.println();
 }
