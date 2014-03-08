@@ -8,34 +8,47 @@ final Race race = new Race("Tensberg", textFont, centerText);
 final String ARDUINO_SERIAL = "/dev/ttyACM0";
 final String[] WEBCAMS = { "/dev/video0", "/dev/video1" };
 final int FRAME_RATE = 30;
+final String VIDEO_FILE = System.getProperty("user.home") + "/CarreraRacer.mp4";
 
+VideoStreamer videoStreamer;
 Capture video;
 final Capture[] videos = new Capture[WEBCAMS.length];
 Serial arduino;
 
 void setup() {
   size(640, 480);
-  
+  frameRate(FRAME_RATE);
+    
   background(255);
-
   fill(0);
 
-  frameRate(FRAME_RATE);
-  
   for (int i=0; i<WEBCAMS.length; i++) {
-    videos[i] = new Capture(this, 640, 480, WEBCAMS[i], FRAME_RATE);
+    videos[i] = new Capture(this, width, height, WEBCAMS[i], FRAME_RATE);
     videos[i].start();
   }
   video = videos[0];
 
   arduino = new Serial(this, ARDUINO_SERIAL, 57600);
   arduino.bufferUntil('\n');
+
+  videoStreamer = new VideoStreamer(VIDEO_FILE, width, height);
+  
+  Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+    public void run () {
+      videoStreamer.close();
+    }
+  }));
 }
 
 void draw() {
   set(0, 0, video);
   race.draw();
   centerText.draw();
+  videoStreamer.captureDisplayWindow();
+}
+
+void stop() {
+  videoStreamer.close();
 }
 
 void captureEvent(Capture c) {
