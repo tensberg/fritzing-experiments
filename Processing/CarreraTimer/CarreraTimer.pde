@@ -1,14 +1,16 @@
 import processing.video.*;
 import processing.serial.*;
 
-Capture video;
-
 final PFont textFont = createFont("Loma Bold",16,true);
 final PFont bigFont = createFont("Loma Bold",45,true);
 final CenterText centerText = new CenterText(bigFont);
 final Race race = new Race("Tensberg", textFont, centerText);
 final String ARDUINO_SERIAL = "/dev/ttyACM0";
+final String[] WEBCAMS = { "/dev/video0", "/dev/video1" };
+final int FRAME_RATE = 30;
 
+Capture video;
+final Capture[] videos = new Capture[WEBCAMS.length];
 Serial arduino;
 
 void setup() {
@@ -18,10 +20,13 @@ void setup() {
 
   fill(0);
 
-  frameRate(25);
+  frameRate(FRAME_RATE);
   
-  video = new Capture(this, 640, 480, 25);
-  video.start();
+  for (int i=0; i<WEBCAMS.length; i++) {
+    videos[i] = new Capture(this, 640, 480, WEBCAMS[i], FRAME_RATE);
+    videos[i].start();
+  }
+  video = videos[0];
 
   arduino = new Serial(this, ARDUINO_SERIAL, 57600);
   arduino.bufferUntil('\n');
@@ -49,6 +54,9 @@ void serialEvent(Serial whichPort) {
     race.startRace(Integer.parseInt(line.substring(6)));
   } else if (line.startsWith("LAP")) {
     race.nextLap();
+    if (random(1) < 0.3) {
+      video = videos[(int) random(0, videos.length)];
+    }
   } else if (line.startsWith("FINISH")) {
     race.finish();
   }
