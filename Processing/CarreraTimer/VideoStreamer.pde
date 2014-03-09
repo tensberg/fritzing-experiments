@@ -4,6 +4,7 @@ import java.util.concurrent.TimeUnit;
 import com.xuggle.mediatool.IMediaWriter;
 import com.xuggle.mediatool.ToolFactory;
 import com.xuggle.xuggler.ICodec;
+import com.xuggle.xuggler.IRational;
 
 class VideoStreamer {
   
@@ -11,9 +12,9 @@ class VideoStreamer {
 
   final long startTime = System.nanoTime();
   
-  VideoStreamer(String filename, int movieWidth, int movieHeight) {
+  VideoStreamer(String filename, int movieWidth, int movieHeight, int movieFrameRate) {
     writer = ToolFactory.makeWriter(filename);
-    writer.addVideoStream(0, 0, ICodec.ID.CODEC_ID_H264, movieWidth, movieHeight);
+    writer.addVideoStream(0, 0, ICodec.ID.CODEC_ID_H264, IRational.make(movieFrameRate, 1), movieWidth, movieHeight);
   }
   
   void captureDisplayWindow() {

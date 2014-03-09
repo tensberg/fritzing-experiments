@@ -9,8 +9,11 @@ final String ARDUINO_SERIAL = "/dev/ttyACM0";
 final String[] WEBCAMS = { "/dev/video0", "/dev/video1" };
 final int FRAME_RATE = 30;
 final String VIDEO_FILE = System.getProperty("user.home") + "/CarreraRacer.mp4";
+//final String VIDEO_FILE = "http://localhost:8090/feed1.ffm";
 
 VideoStreamer videoStreamer;
+int videoSwitchedLaps = 0;
+int currentVideo = 0;
 Capture video;
 final Capture[] videos = new Capture[WEBCAMS.length];
 Serial arduino;
@@ -26,12 +29,12 @@ void setup() {
     videos[i] = new Capture(this, width, height, WEBCAMS[i], FRAME_RATE);
     videos[i].start();
   }
-  video = videos[0];
+  video = videos[currentVideo];
 
   arduino = new Serial(this, ARDUINO_SERIAL, 57600);
   arduino.bufferUntil('\n');
 
-  videoStreamer = new VideoStreamer(VIDEO_FILE, width, height);
+  videoStreamer = new VideoStreamer(VIDEO_FILE, width, height, FRAME_RATE);
   
   Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
     public void run () {
@@ -67,10 +70,13 @@ void serialEvent(Serial whichPort) {
     race.startRace(Integer.parseInt(line.substring(6)));
   } else if (line.startsWith("LAP")) {
     race.nextLap();
-    if (random(1) < 0.3) {
-      video = videos[(int) random(0, videos.length)];
+    if (videoSwitchedLaps++ >= 3 && random(1) < 0.4) {
+      currentVideo = (currentVideo+1) % videos.length;
+      video = videos[currentVideo];
+      videoSwitchedLaps = 0;
     }
   } else if (line.startsWith("FINISH")) {
     race.finish();
+    video = videos[0];
   }
 }
