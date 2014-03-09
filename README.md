@@ -19,6 +19,8 @@ Show a countdown on a seven segment display and start a motor. Combines parts fr
 
 A photo sensor in the head of the Fritzing Cardboard Bot is used to find the brightest spot. This can be used to track a flashlight.
 
+[![Fritzing Cardboard Bot](https://raw.github.com/wiki/tensberg/fritzing-experiments/img/Lichtsucher_thumb.jpg)](https://raw.github.com/wiki/tensberg/fritzing-experiments/img/Lichtsucher.jpg)
+
 # RoboFaceTracker
 
 A Processing sketch which uses the Arduino firmata firmware. Uses a webcam and OpenCV for Processing to detect faces. Makes the Fritzing Cardboard Bot always look at you.
@@ -27,4 +29,4 @@ A Processing sketch which uses the Arduino firmata firmware. Uses a webcam and O
 
 Uses the photo sensor to build a light barrier to measure lap times of a slot car racer. Lap and race times are shown on a 16x2 character display and printed on the serial port. The Arduino can be used standalone. You can additionally use the Processing sketch to overlay a webcam capture of your race with the race times.
 
-![Slot Car Photo](/tensberg/fritzing-experiments/wiki/img/SlotCarTimer.jpg)
+[![Slot Car Timer Photo](https://raw.github.com/wiki/tensberg/fritzing-experiments/img/SlotCarTimer_thumb.jpg)](https://raw.github.com/wiki/tensberg/fritzing-experiments/img/SlotCarTimer.jpg)
