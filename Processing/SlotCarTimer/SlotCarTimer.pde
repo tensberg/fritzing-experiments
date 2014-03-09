@@ -8,7 +8,7 @@ final Race race = new Race("Tensberg", textFont, centerText);
 final String ARDUINO_SERIAL = "/dev/ttyACM0";
 final String[] WEBCAMS = { "/dev/video0", "/dev/video1" };
 final int FRAME_RATE = 30;
-final String VIDEO_FILE = System.getProperty("user.home") + "/CarreraRacer.mp4";
+final String VIDEO_FILE = System.getProperty("user.home") + "/SlotCarRacer.mp4";
 //final String VIDEO_FILE = "http://localhost:8090/feed1.ffm";
 
 VideoStreamer videoStreamer;
