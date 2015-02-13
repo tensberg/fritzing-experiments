@@ -32,3 +32,14 @@ Uses the photo sensor to build a light barrier to measure lap times of a slot ca
 [![Slot Car Timer Photo](https://raw.github.com/wiki/tensberg/fritzing-experiments/img/SlotCarTimer_thumb.jpg "Slot Car Timer")](https://raw.github.com/wiki/tensberg/fritzing-experiments/img/SlotCarTimer.jpg)
 
 ![Slot Car Timer Processing Screenshot](https://raw.github.com/wiki/tensberg/fritzing-experiments/img/SlotCarTimer_Processing.jpg "Slot Car Timer Processing Screenshot")
+
+[Slot Car Timer YouTube video](http://youtu.be/XoMMHVWk8uI)
+
+# Murmelbahn
+
+Switches at the start and end of the track of a Fischertechnik Dynamic marble run measure the run time. A motor controller stops the motor when the marble reaches the top and starts the run when a button is pressed. The processing sketch overlays a webcam image with the run time. In true IoT style, the marble run also has a [ThingSpeak channel](https://thingspeak.com/channels/26266).
+
+
+[![Murmelbahn Photo](https://raw.github.com/wiki/tensberg/fritzing-experiments/img/marble_run_thumb.jpg "Murmelbahn")](https://raw.github.com/wiki/tensberg/fritzing-experiments/img/marble_run.jpg)
+
+[Murmelbahn YouTube video](http://youtu.be/2_CHgmET9PY)
