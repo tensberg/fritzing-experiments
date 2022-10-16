@@ -14,6 +14,9 @@
 // Distance Sensor
 #include <NewPing.h>
 
+// RTCMemory
+#include <RTCMemory.h>
+
 // Pin definitions
 #define VCC_3V_PIN 5
 #define VCC_5V_PIN 15
@@ -22,15 +25,20 @@
 #define I2C_SDA 0
 #define I2C_SCL 4
 
+// pause between measurements
+#define MICROS 1000000
+#define SLEEP_TIME_MICROS 120 * MICROS
+
 // environment sensor
 #define BME_I2C_ADDRESS 0x76
-Adafruit_BME280 bme; // I2C
+Adafruit_BME280 bme;
 
 // distance sensor
 // Define maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500 cm:
 #define MAX_DISTANCE 400
 NewPing sonar(DISTANCE_TRIG_PIN, DISTANCE_ECHO_PIN, MAX_DISTANCE);
 
+#define ENABLE_SERIAL_STATUS
 #define ENABLE_DISPLAY
 
 #ifdef ENABLE_DISPLAY
@@ -52,16 +60,28 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 sensordata data;
 int message_counter = 0;
 
-struct send_status {
-  int sendSuccess;
-  int sendFailed;
+typedef struct {
+  unsigned long iteration;
+  unsigned long sleepTimeS;
+  unsigned long activeTimeS;
+  unsigned int activeTimeMicros;
+  unsigned int sendSuccessCount;
+  unsigned int sendFailedCount;
   int lastSendStatus;
-} send_status;
+  int lastSendFailedStatus;
+} ZisternensensorStatus;
 
+RTCMemory<ZisternensensorStatus> rtcMemory("/etc/zisternensensor_status.bin");
+ZisternensensorStatus *zsStatus;
+
+unsigned long sketchStartMicros = micros();
 
 void setup() {
+  // init
   Serial.begin(57600);
   Serial.println("\n\n\nsetup");
+
+  initZisternensensorStatus();
 
   pinMode(VCC_3V_PIN, OUTPUT);
   pinMode(VCC_5V_PIN, OUTPUT);
@@ -71,9 +91,8 @@ void setup() {
   initEspNow();
   initBme();
   initDisplay();
-}
 
-void loop() {
+  // run measurement
   data.temperature = bme.readTemperature();
   data.pressure = bme.readPressure() / 100.0F;
   data.humidity = bme.readHumidity();
@@ -87,9 +106,63 @@ void loop() {
 
   displayData();
 
+  // end iteration and sleep to next measurement
   sensorsOff();
-  ESP.deepSleep(5e6);
-  // we should never get here because deepSleep is ended with a reset
+  updateAndSaveStatus();
+  ESP.deepSleep(SLEEP_TIME_MICROS);
+}
+
+void loop() {
+  // we should never get here because deepSleep is ended by a reset
+  Serial.println("looping");
+}
+
+void initZisternensensorStatus() {
+  Serial.print("Filesystem initialization... ");
+  if (LittleFS.begin()) {
+    Serial.println("Done!");
+  } else {
+    Serial.println("Error");
+  }
+
+  if (rtcMemory.begin()) {
+    Serial.println("Initialization done! Previous data found.");
+  } else {
+    Serial.println("Initialization done! No previous data found. The buffer is cleared.");
+  }
+
+  zsStatus = rtcMemory.getData();
+
+  
+#ifdef ENABLE_SERIAL_STATUS
+  Serial.print("iteration:");
+  Serial.println(zsStatus->iteration);
+  Serial.println("sleep time: ");
+  prettyPrintTime(zsStatus->sleepTimeS);
+  Serial.println();
+  Serial.println("active time: ");
+  prettyPrintTime(zsStatus->activeTimeS);
+  Serial.print(".");
+  Serial.println(zsStatus->activeTimeMicros);
+  Serial.print("send success: ");
+  Serial.println(zsStatus->sendSuccessCount);
+  Serial.print("send failed: ");
+  Serial.println(zsStatus->sendFailedCount);
+  Serial.print("last send status:");
+  Serial.println(zsStatus->lastSendStatus);
+  Serial.print("last send failed status:");
+  Serial.println(zsStatus->lastSendFailedStatus);
+#endif
+}
+
+void prettyPrintTime(long seconds) {
+  Serial.print(seconds / 60 / 60 / 24);
+  Serial.print("D");
+  Serial.print(seconds / 60 / 60 % 24);
+  Serial.print(":");
+  Serial.print(seconds / 60 % 60);
+  Serial.print(":");
+  Serial.print(seconds % 60);
 }
 
 void initEspNow() {
@@ -150,16 +223,18 @@ void initDisplay() {
 void dataSent(uint8_t *mac_addr, uint8_t status) {
   Serial.print("\r\nLast Packet Send Status:\t");
   Serial.println(status);
-  send_status.lastSendStatus = status;
+  zsStatus->lastSendStatus = status;
   if (status == 0) {
-    send_status.sendSuccess++;
+    zsStatus->sendSuccessCount++;
   } else {
-    send_status.sendFailed++;
+    zsStatus->sendFailedCount++;
+    zsStatus->lastSendFailedStatus = status;
   }
 }
 
 
 void displayData() {
+#ifdef ENABLE_SERIAL_STATUS
   Serial.print("Temperature = ");
   Serial.print(data.temperature, 1);
   Serial.println(" *C");
@@ -172,6 +247,7 @@ void displayData() {
   Serial.print("Distance = ");
   Serial.print(data.distance);
   Serial.println(" cm");
+#endif
   
 #ifdef ENABLE_DISPLAY
   display.clearDisplay();
@@ -190,11 +266,11 @@ void displayData() {
   display.print(data.distance);
   display.println(" cm");
   display.print("last send status:");
-  display.println(send_status.lastSendStatus);
+  display.println(zsStatus->lastSendStatus);
   display.print("send success: ");
-  display.println(send_status.sendSuccess);
+  display.println(zsStatus->sendSuccessCount);
   display.print("send failed: ");
-  display.println(send_status.sendFailed);
+  display.println(zsStatus->sendFailedCount);
   
   display.display();
 #endif
@@ -211,4 +287,20 @@ void sensorsOff() {
 void switchSensorsVcc(int value) {
   digitalWrite(VCC_3V_PIN, value);
   digitalWrite(VCC_5V_PIN, value);
+}
+
+void updateAndSaveStatus() {
+  zsStatus->iteration++;
+  zsStatus->sleepTimeS += SLEEP_TIME_MICROS / MICROS;
+  unsigned long activeTimeMicros = micros() - sketchStartMicros;
+  zsStatus->activeTimeMicros += activeTimeMicros;
+  zsStatus->activeTimeS += zsStatus->activeTimeMicros / MICROS;
+  zsStatus->activeTimeMicros %= MICROS;
+
+  rtcMemory.save();
+
+  // don't backup on every iteration to preserve battery
+  if (zsStatus->iteration%10 == 0) {
+   rtcMemory.backup();
+  }
 }
