@@ -15,6 +15,9 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
+const String BRIDGE_PATH = "espnow_mqtt_bridge/";
+const String ZISTERNENSENSOR_PATH = "garten/zisternensensor/";
+
 WiFiClient wifiClient;
 
 // MQTT
@@ -25,13 +28,13 @@ const char* mqtt_client = "espnow_mqtt_bridge";
 
 PubSubClient mqttClient(wifiClient);
 
-sensordata data;
+ZisternensensorMessage zsMessage;
 bool dataReceived = false;
 int loopCount = 0;
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("\n\nsetup\n");
+  Serial.println("\n\nsetup");
 
   initWifiAp();
   initEspNow();
@@ -114,36 +117,62 @@ void connectMqtt() {
 void onDataRecv(uint8_t * mac, uint8_t *incomingData, uint8_t len) {
 
   Serial.println("Data received");
-  if (len != sizeof(data)) {
+  if (len != sizeof(zsMessage)) {
     Serial.print("received unexpected data length: ");
     Serial.println(len);
     return;
   }
 
-  memcpy(&data, incomingData, sizeof(data));
+  memcpy(&zsMessage, incomingData, sizeof(zsMessage));
   dataReceived = true;
 }
 
-void publishStatus() {
-  publish("status", "{\"rssi\":%d,\"channel\":%d}", WiFi.RSSI(), WiFi.channel());
-}
-
 void publishData() {
-  publish("sensor", "{\"temperature\":%.2f,\"humidity\":%.2f,\"pressure\":%.1f,\"distance\":%d}", data.temperature, data.humidity, data.pressure, data.distance);
+  startPublish();
+  publishBridgeStatus();
+  publishZisternensensorData();
+  publishZisternensensorStatus();
+  endPublish();
 }
 
-void publish(String path, const char* message, ...) {
+void startPublish() {
   initWifiClient();
   connectMqtt();
+}
 
+void endPublish() {
+  mqttClient.loop();
+  initWifiAp();
+}
+
+void publishBridgeStatus() {
+  publishMessage(BRIDGE_PATH + "status", "{\"rssi\":%d,\"channel\":%d}", WiFi.RSSI(), WiFi.channel());
+}
+
+void publishZisternensensorData() {
+  publishMessage(ZISTERNENSENSOR_PATH + "sensor", "{\"temperature\":%.2f,\"humidity\":%.2f,\"pressure\":%.1f,\"distance\":%d}", zsMessage.data.temperature, zsMessage.data.humidity, zsMessage.data.pressure, zsMessage.data.distance);
+}
+
+void publishZisternensensorStatus() {
+  publishMessage(ZISTERNENSENSOR_PATH + "status", "{\"iteration\":%lu,\"sleepTimeS\":%lu,\"activeTimeS\":%lu,\"sendCount\":{\"success\":%u,\"failed\":%u},\"sendStatus\":{\"last\":%d,\"lastFailed\":%d}}", 
+      zsMessage.status.iteration, zsMessage.status.sleepTimeS, zsMessage.status.activeTimeS, 
+      zsMessage.status.sendSuccessCount, zsMessage.status.sendFailedCount,
+      zsMessage.status.lastSendStatus, zsMessage.status.lastSendFailedStatus);
+}
+
+void publishMessage(String path, const char* message, ...) {
   va_list params;
   va_start(params, message);
 
-  char json[128];
+  char json[512];
   vsnprintf(json, sizeof(json), message, params);
-  mqttClient.publish(("garten/zisternensensor/" + path).c_str(), json);
   mqttClient.loop();
+  delay(500); // somehow the MQTT lib needs a little think time between multiple publishes
+  boolean success = mqttClient.publish(path.c_str(), json);
+  Serial.print(path);
+  Serial.print(" ");
   Serial.println(json);
-
-  initWifiAp();
+  if (!success) {
+    Serial.println("publish failed");
+  }
 }

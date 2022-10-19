@@ -17,6 +17,11 @@
 // RTCMemory
 #include <RTCMemory.h>
 
+// features for testing / debugging
+//#define ENABLE_SERIAL_STATUS
+//#define ENABLE_DISPLAY
+
+
 // Pin definitions
 #define VCC_3V_PIN 5
 #define VCC_5V_PIN 15
@@ -38,9 +43,6 @@ Adafruit_BME280 bme;
 #define MAX_DISTANCE 400
 NewPing sonar(DISTANCE_TRIG_PIN, DISTANCE_ECHO_PIN, MAX_DISTANCE);
 
-#define ENABLE_SERIAL_STATUS
-#define ENABLE_DISPLAY
-
 #ifdef ENABLE_DISPLAY
 
 #include <Adafruit_GFX.h>
@@ -56,23 +58,10 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 #endif
 
-// zisternensensor data
-sensordata data;
-int message_counter = 0;
-
-typedef struct {
-  unsigned long iteration;
-  unsigned long sleepTimeS;
-  unsigned long activeTimeS;
-  unsigned int activeTimeMicros;
-  unsigned int sendSuccessCount;
-  unsigned int sendFailedCount;
-  int lastSendStatus;
-  int lastSendFailedStatus;
-} ZisternensensorStatus;
-
 RTCMemory<ZisternensensorStatus> rtcMemory("/etc/zisternensensor_status.bin");
 ZisternensensorStatus *zsStatus;
+ZisternensensorMessage zsMessage;
+ZisternensensorData *zsData = &zsMessage.data;
 
 unsigned long sketchStartMicros = micros();
 
@@ -92,22 +81,12 @@ void setup() {
   initBme();
   initDisplay();
 
-  // run measurement
-  data.temperature = bme.readTemperature();
-  data.pressure = bme.readPressure() / 100.0F;
-  data.humidity = bme.readHumidity();
-  data.distance = sonar.convert_cm(sonar.ping_median());
-  
-  int res = esp_now_send(NULL, (uint8_t *) &data, sizeof(data));
-  if (res != 0) {
-    Serial.print("send failed: ");
-    Serial.println(res);
-  }
-
+  measureData();
+  sensorsOff();
+  sendDataEspNow();
   displayData();
 
   // end iteration and sleep to next measurement
-  sensorsOff();
   updateAndSaveStatus();
   ESP.deepSleep(SLEEP_TIME_MICROS);
 }
@@ -220,6 +199,24 @@ void initDisplay() {
 #endif
 }
 
+void measureData() {
+  zsData->temperature = bme.readTemperature();
+  zsData->pressure = bme.readPressure() / 100.0F;
+  zsData->humidity = bme.readHumidity();
+  zsData->distance = sonar.convert_cm(sonar.ping_median());
+}
+
+void sendDataEspNow() {
+  // copy status from RTCMemory to zsMessage struct
+  memcpy(&zsMessage.status, zsStatus, sizeof(*zsStatus));
+  
+  int res = esp_now_send(NULL, (uint8_t *) &zsMessage, sizeof(zsMessage));
+  if (res != 0) {
+    Serial.print("send failed: ");
+    Serial.println(res);
+  }
+}
+
 void dataSent(uint8_t *mac_addr, uint8_t status) {
   Serial.print("\r\nLast Packet Send Status:\t");
   Serial.println(status);
@@ -236,16 +233,16 @@ void dataSent(uint8_t *mac_addr, uint8_t status) {
 void displayData() {
 #ifdef ENABLE_SERIAL_STATUS
   Serial.print("Temperature = ");
-  Serial.print(data.temperature, 1);
+  Serial.print(zsData->temperature, 1);
   Serial.println(" *C");
   Serial.print("Pressure = ");
-  Serial.print(data.pressure, 0);
+  Serial.print(zsData->pressure, 0);
   Serial.println(" hPa");
   Serial.print("Humidity = ");
-  Serial.print(data.humidity, 0);
+  Serial.print(zsData->humidity, 0);
   Serial.println(" %");
   Serial.print("Distance = ");
-  Serial.print(data.distance);
+  Serial.print(zsData->distance);
   Serial.println(" cm");
 #endif
   
@@ -254,16 +251,16 @@ void displayData() {
   display.setCursor(0, 0);
 
   display.print("Temperature = ");
-  display.print(data.temperature, 1);
+  display.print(zsData->temperature, 1);
   display.println(" *C");
   display.print("Pressure = ");
-  display.print(data.pressure, 0);
+  display.print(zsData->pressure, 0);
   display.println(" hPa");
   display.print("Humidity = ");
-  display.print(data.humidity, 0);
+  display.print(zsData->humidity, 0);
   display.println(" %");
   display.print("Distance = ");
-  display.print(data.distance);
+  display.print(zsData->distance);
   display.println(" cm");
   display.print("last send status:");
   display.println(zsStatus->lastSendStatus);
